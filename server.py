@@ -4,15 +4,20 @@ import struct
 
 from threading import Thread
 import cv2
-import random
+
+from datetime import date
+
+current_date = date.today()
 
 cameras = [[1, 8098], [2, 8010]]
 HOST = 'localhost'
 
 def create_sockets(cameras):
-    sockets = []
+    sockets = {}
     for camera in cameras:
-        sockets.append(create_socket_for_camera(camera[0], camera[1]))
+        camera_id = camera[0]
+        sockets[camera_id] = create_socket_for_camera(camera_id, camera[1])
+    print(sockets)
     return sockets        
         
 def create_socket_for_camera(camera_id, port):
@@ -25,41 +30,52 @@ def create_socket_for_camera(camera_id, port):
     return s
 
 
-def listen_on_socket(socket):
+def listen_on_socket(socket, camera_id):
     while True:
         conn, addr = socket.accept()     # Establish connection with client.
-        on_new_client(conn)
+        on_new_client(conn, camera_id)
     
-def on_new_client(clientsocket):
+def on_new_client(clientsocket, camera_id):
     data = b'' ### CHANGED
     payload_size = struct.calcsize("L") ### CHANGED
     print('Welcome to the Server\n')
-    randomId = str(random.randint(1, 1000))
-    while True:
-        while len(data) < payload_size:
-            data += clientsocket.recv(4096)
+    vid_cod = cv2.VideoWriter_fourcc(*'XVID')
+    path = str('videos/' + current_date.strftime("%b-%d-%Y") + '/cam_' + str(camera_id) + '.mp4')
+    output = None
+    try:
+        while True:
+            while len(data) < payload_size:
+                data += clientsocket.recv(4096)
 
-        packed_msg_size = data[:payload_size]
-        data = data[payload_size:]
-        msg_size = struct.unpack("L", packed_msg_size)[0] ### CHANGED
+            packed_msg_size = data[:payload_size]
+            data = data[payload_size:]
+            msg_size = struct.unpack("L", packed_msg_size)[0] ### CHANGED
 
-        # Retrieve all data based on message size
-        while len(data) < msg_size:
-            data += clientsocket.recv(4096)
+            # Retrieve all data based on message size
+            while len(data) < msg_size:
+                data += clientsocket.recv(4096)
 
-        frame_data = data[:msg_size]
-        data = data[msg_size:]
+            frame_data = data[:msg_size]
+            data = data[msg_size:]
+                
 
-    # Extract frame
-        frame = pickle.loads(frame_data)
-
-    # Display
-        cv2.imshow(str('frame' + randomId), frame)
-        cv2.waitKey(1)
-    clientsocket.stop()
+        # Extract frame
+            frame = pickle.loads(frame_data)
+            if output is None:
+                output = cv2.VideoWriter(str('first_cam_' + str(camera_id) + '.avi'), vid_cod, 20.0, (frame.shape[1],frame.shape[0]))
+        # Display
+            cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
+            cv2.waitKey(1)
+            output.write(frame)
+    except e:
+        print(e)
+        clientsocket.stop()
+        output.release()
+    finally:
+        output.release()
 
 if __name__ == "__main__":
     sockets = create_sockets(cameras)
-    for socket in sockets:
-        Thread(target = listen_on_socket,args = (socket,)).start()
+    for camera_id in sockets:
+        Thread(target = listen_on_socket,args = (sockets[camera_id], camera_id,)).start()
     
