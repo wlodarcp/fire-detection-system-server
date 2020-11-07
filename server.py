@@ -36,16 +36,18 @@ def listen_on_socket(socket, camera_id):
         on_new_client(conn, camera_id)
     
 def on_new_client(clientsocket, camera_id):
-    data = b'' ### CHANGED
-    payload_size = struct.calcsize("L") ### CHANGED
-    print('Welcome to the Server\n')
+    data = b''
+    payload_size = struct.calcsize("L")
+    print("Camera " + str(camera_id) + " CONNECTED to the server")
     vid_cod = cv2.VideoWriter_fourcc(*'XVID')
     path = str('videos/' + current_date.strftime("%b-%d-%Y") + '/cam_' + str(camera_id) + '.mp4')
     output = None
-    try:
-        while True:
+    while True:
+        try:
             while len(data) < payload_size:
-                data += clientsocket.recv(4096)
+                received = clientsocket.recv(4096)
+                if not received: raise Exception()
+                data += received
 
             packed_msg_size = data[:payload_size]
             data = data[payload_size:]
@@ -67,12 +69,11 @@ def on_new_client(clientsocket, camera_id):
             cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
             cv2.waitKey(1)
             output.write(frame)
-    except e:
-        print(e)
-        clientsocket.stop()
-        output.release()
-    finally:
-        output.release()
+        except:
+            print("Camera " + str(camera_id) + " DISCONNECTED")
+            output.release()
+            cv2.destroyWindow(str('frame_for_camera-' + str(camera_id)))
+            break
 
 if __name__ == "__main__":
     sockets = create_sockets(cameras)
