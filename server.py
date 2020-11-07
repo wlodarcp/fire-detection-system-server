@@ -1,11 +1,13 @@
 import pickle
 import socket
 import struct
+import os
 
 from threading import Thread
 import cv2
 
 from datetime import date
+from datetime import datetime
 
 current_date = date.today()
 
@@ -34,13 +36,37 @@ def listen_on_socket(socket, camera_id):
     while True:
         conn, addr = socket.accept()     # Establish connection with client.
         on_new_client(conn, camera_id)
-    
+
+def build_path_for_video(camera_id):
+    return str('videos/' + current_date.strftime("%b-%d-%Y") + '/cam_' + str(camera_id) + '/')
+
+def create_path_if_not_exists(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+def build_video_name_with_path(camera_id):
+    path = build_path_for_video(camera_id)
+    create_path_if_not_exists(path)
+    current_date_time = datetime.now()
+    video_path = str(path + str(current_date_time.strftime("started_at_%H.%M")) + '.avi')
+    print("Video path: " + video_path)
+    return video_path
+
+def is_day_changed():
+    actual_date = date.today()
+    return actual_date != current_date
+
+def update_vide_name_on_day_change(camera_id):
+    global current_date
+    current_date = date.today()
+    return build_video_name_with_path(camera_id)
+
 def on_new_client(clientsocket, camera_id):
     data = b''
     payload_size = struct.calcsize("L")
     print("Camera " + str(camera_id) + " CONNECTED to the server")
     vid_cod = cv2.VideoWriter_fourcc(*'XVID')
-    path = str('videos/' + current_date.strftime("%b-%d-%Y") + '/cam_' + str(camera_id) + '.mp4')
+    video_name = build_video_name_with_path(camera_id)
     output = None
     while True:
         try:
@@ -59,12 +85,15 @@ def on_new_client(clientsocket, camera_id):
 
             frame_data = data[:msg_size]
             data = data[msg_size:]
-                
 
+            if is_day_changed():
+                video_name = update_vide_name_on_day_change(camera_id)
+                if output is not None:
+                    output.release()  # save previous video if day changed
         # Extract frame
             frame = pickle.loads(frame_data)
             if output is None:
-                output = cv2.VideoWriter(str('first_cam_' + str(camera_id) + '.avi'), vid_cod, 20.0, (frame.shape[1],frame.shape[0]))
+                output = cv2.VideoWriter(video_name, vid_cod, 20.0, (frame.shape[1],frame.shape[0]))
         # Display
             cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
             cv2.waitKey(1)
