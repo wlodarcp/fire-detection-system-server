@@ -24,12 +24,12 @@ lock = Lock()
 app = Flask(__name__)
 
 
-def generate_data_for_web_browser():
+def generate_data_for_web_browser(camera_id):
     global lock, current_frames_from_cameras
     while True:
         # wait until the lock is acquired
         with lock:
-            output = current_frames_from_cameras[1]
+            output = current_frames_from_cameras[int(camera_id)]
             # check if the output frame is available, otherwise skip
             # the iteration of the loop
             if output is None:
@@ -46,12 +46,12 @@ def generate_data_for_web_browser():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", camera_list=cameras)
 
 
-@app.route("/video_feed")
-def video_feed():
-    return Response(generate_data_for_web_browser(), mimetype="multipart/x-mixed-replace; boundary=frame")
+@app.route("/video_feed/<camera_id>")
+def video_feed(camera_id):
+    return Response(generate_data_for_web_browser(camera_id), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
 def create_sockets(cameras):

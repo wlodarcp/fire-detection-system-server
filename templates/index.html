@@ -1,9 +1,13 @@
 <html>
   <head>
-    <title>Pi Video Surveillance</title>
+    <title>Fire detection system</title>
   </head>
   <body>
-    <h1>Pi Video Surveillance</h1>
-    <img src="{{ url_for('video_feed') }}">
+    <h1>Fire detection monitoring system</h1>
+
+    {% for camera in camera_list %}
+            <h1>Camera Id: {{camera[0]}}</h1>
+            <img src="{{ url_for('video_feed', camera_id=camera[0]) }}">
+    {% endfor %}
   </body>
 </html>
