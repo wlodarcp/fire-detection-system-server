@@ -17,6 +17,7 @@ current_date = date.today()
 
 cameras = [[1, 8098], [2, 8010]]
 current_frames_from_cameras = {}
+is_video_saving_enabled = False
 HOST = 'localhost'
 
 lock = Lock()
@@ -136,22 +137,24 @@ def on_new_client(clientsocket, camera_id):
 
             if is_day_changed():
                 video_name = update_vide_name_on_day_change(camera_id)
-                if output is not None:
+                if output is not None and is_video_saving_enabled:
                     output.release()  # save previous video if day changed
         # Extract frame
             frame = pickle.loads(frame_data)
             with lock:
                 current_frames_from_cameras[camera_id] = frame.copy()
-            if output is None:
+            if output is None and is_video_saving_enabled:
                 output = cv2.VideoWriter(video_name, vid_cod, 20.0, (frame.shape[1],frame.shape[0]))
         # Display
             cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
             cv2.waitKey(1)
-            output.write(frame)
+            if is_video_saving_enabled:
+                output.write(frame)
 
         except:
             print("Camera " + str(camera_id) + " DISCONNECTED")
-            output.release()
+            if is_video_saving_enabled:
+                output.release()
             cv2.destroyWindow(str('frame_for_camera-' + str(camera_id)))
             break
 
