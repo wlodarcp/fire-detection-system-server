@@ -1,13 +1,46 @@
 <html>
   <head>
     <title>Fire detection system</title>
+      <style>
+
+        div.video {
+          width: 90%;
+          background-color: white;
+          box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+          margin-bottom: 25px;
+        }
+
+        div.videos{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-column-gap: 5px;
+            grid-row-gap: 5px;
+            width:100%;
+        }
+
+        div.container {
+          text-align: center;
+          padding: 1px 3px;
+        }
+
+        img {
+             display: block;
+             margin-left: auto;
+             margin-right: auto;
+        }
+</style>
   </head>
   <body>
     <h1>Fire detection monitoring system</h1>
-
-    {% for camera in camera_list %}
-            <h1>Camera Id: {{camera[0]}}</h1>
-            <img src="{{ url_for('video_feed', camera_id=camera[0]) }}">
-    {% endfor %}
+    <div class="videos">
+        {% for camera in camera_list %}
+            <div class="video">
+                <div class="container">
+                    Camera Id: {{camera[0]}}
+                </div>
+                <img src="{{ url_for('video_feed', camera_id=camera[0]) }}" height="90%" width="90%" >
+            </div>
+        {% endfor %}
+    </div>
   </body>
 </html>
