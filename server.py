@@ -15,9 +15,10 @@ from flask import render_template
 
 current_date = date.today()
 
-cameras = [[1, 8098], [2, 8010]]
+cameras = [[1, 8098, True], [2, 8010, False]]
 current_frames_from_cameras = {}
 is_video_saving_enabled = False
+is_fire_detection_signal_check_enabled = True
 HOST = 'localhost'
 image_on_camera_unavialable = cv2.imread(str('templates/broken_glass.jpg'), 1)
 lock = Lock()
@@ -44,7 +45,7 @@ def generate_data_for_web_browser(camera_id):
 
 @app.route("/")
 def index():
-    return render_template("index.html", camera_list=cameras)
+    return render_template("index.html", camera_list=cameras, is_fire_check_enabled=is_fire_detection_signal_check_enabled)
 
 
 @app.route("/video_feed/<camera_id>")
@@ -105,6 +106,19 @@ def update_vide_name_on_day_change(camera_id):
     current_date = date.today()
     return build_video_name_with_path(camera_id)
 
+def extract_singal_from_fire_detctor(clientsocket, data):
+    received = clientsocket.recv(4096)
+    if not received: raise Exception()
+    data += received
+    is_fire = data[0]
+    data = data[1:]
+    return data, is_fire
+
+
+#TODO REFACTOR create class for camera instead of use object ? consider how it will work with config from file for cameras
+def find_camera_by_id(camera_id):
+    return next((camera for camera in cameras if camera[0] == camera_id), None)
+
 
 def on_new_client(clientsocket, camera_id):
     global lock, current_frames_from_cameras
@@ -116,7 +130,10 @@ def on_new_client(clientsocket, camera_id):
     output = None
     while True:
         try:
-            while len(data) < payload_size:
+            is_fire = None
+            if is_fire_detection_signal_check_enabled and find_camera_by_id(camera_id)[2]:
+                (data, is_fire) = extract_singal_from_fire_detctor(clientsocket, data)
+            while len(data) < payload_size: #1 because first byte is info about is fire signal
                 received = clientsocket.recv(4096)
                 if not received: raise Exception()
                 data += received
