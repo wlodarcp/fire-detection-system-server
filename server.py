@@ -19,7 +19,7 @@ cameras = [[1, 8098], [2, 8010]]
 current_frames_from_cameras = {}
 is_video_saving_enabled = False
 HOST = 'localhost'
-
+image_on_camera_unavialable = cv2.imread(str('templates/broken_glass.jpg'), 1)
 lock = Lock()
 
 app = Flask(__name__)
@@ -30,19 +30,16 @@ def generate_data_for_web_browser(camera_id):
     while True:
         # wait until the lock is acquired
         with lock:
-            output = current_frames_from_cameras[int(camera_id)]
-            # check if the output frame is available, otherwise skip
-            # the iteration of the loop
-            if output is None:
-                continue
-            # encode the frame in JPEG format
-            (flag, encodedImage) = cv2.imencode(".jpg", output)
-            # ensure the frame was successfully encoded
+            try:
+                output = current_frames_from_cameras[int(camera_id)]
+                (flag, encoded_image) = cv2.imencode(".jpg", output)
+            except:
+                (flag, encoded_image) = cv2.imencode(".jpg", image_on_camera_unavialable)
             if not flag:
                 continue
         # yield the output frame in the byte format
         yield(b'--frame\r\n' 
-              b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encodedImage) + b'\r\n')
+              b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
 
 
 @app.route("/")
