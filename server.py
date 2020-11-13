@@ -1,6 +1,5 @@
 import os
 import pickle
-import socket
 import struct
 from datetime import date
 from datetime import datetime
@@ -13,6 +12,7 @@ from flask import render_template
 
 from Configuration import load_configuration
 from SocketForCameraCreator import create_sockets
+from FireAlarmColorSelector import FireAlarmColorSelector
 
 config = load_configuration('cameras_config.yaml')
 
@@ -24,11 +24,12 @@ HOST = config.HOST
 current_date = date.today()
 image_on_camera_unavialable = cv2.imread(str('templates/broken_glass.jpg'), 1)
 
-
 current_frames_from_cameras = {}
 lock = Lock()
 
 app = Flask(__name__)
+
+color_selector = FireAlarmColorSelector()
 
 
 def generate_data_for_web_browser(camera_id):
@@ -44,13 +45,13 @@ def generate_data_for_web_browser(camera_id):
             if not flag:
                 continue
         # yield the output frame in the byte format
-        yield(b'--frame\r\n' 
-              b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
 
 
 @app.route("/")
 def index():
-    return render_template("index.html", camera_list=cameras, is_fire_check_enabled=is_fire_detection_signal_check_enabled)
+    return render_template("index.html", camera_list=cameras, is_fire_check_enabled=is_fire_detection_signal_check_enabled, fire_color_selector=color_selector)
 
 
 @app.route("/video_feed/<camera_id>")
@@ -58,10 +59,10 @@ def video_feed(camera_id):
     return Response(generate_data_for_web_browser(camera_id), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
-def listen_on_socket(socket, camera_id):
+def listen_on_socket(socket, camera):
     while True:
-        conn, addr = socket.accept()     # Establish connection with client.
-        on_new_client(conn, camera_id)
+        conn, addr = socket.accept()  # Establish connection with client.
+        on_new_client(conn, camera)
 
 
 def build_path_for_video(camera_id):
@@ -92,6 +93,7 @@ def update_vide_name_on_day_change(camera_id):
     current_date = date.today()
     return build_video_name_with_path(camera_id)
 
+
 def extract_singal_from_fire_detctor(clientsocket, data):
     received = clientsocket.recv(4096)
     if not received: raise Exception()
@@ -101,12 +103,13 @@ def extract_singal_from_fire_detctor(clientsocket, data):
     return data, is_fire
 
 
-#TODO REFACTOR create class for camera instead of use object ? consider how it will work with config from file for cameras
+# TODO REFACTOR create class for camera instead of use object ? consider how it will work with config from file for cameras
 def find_camera_by_id(camera_id):
     return next((camera for camera in cameras if camera.id == camera_id), None)
 
 
-def on_new_client(clientsocket, camera_id):
+def on_new_client(clientsocket, camera):
+    camera_id = camera.id
     global lock, current_frames_from_cameras
     data = b''
     payload_size = struct.calcsize("L")
@@ -116,17 +119,17 @@ def on_new_client(clientsocket, camera_id):
     output = None
     while True:
         try:
-            is_fire = None
-            if is_fire_detection_signal_check_enabled and find_camera_by_id(camera_id).has_fire_detection_enabled:
+            if is_fire_detection_signal_check_enabled and camera.has_fire_detection_enabled:
                 (data, is_fire) = extract_singal_from_fire_detctor(clientsocket, data)
-            while len(data) < payload_size: #1 because first byte is info about is fire signal
+                camera.update_fire_signal_queue(is_fire)
+            while len(data) < payload_size:  # 1 because first byte is info about is fire signal
                 received = clientsocket.recv(4096)
                 if not received: raise Exception()
                 data += received
 
             packed_msg_size = data[:payload_size]
             data = data[payload_size:]
-            msg_size = struct.unpack("L", packed_msg_size)[0] ### CHANGED
+            msg_size = struct.unpack("L", packed_msg_size)[0]  ### CHANGED
 
             # Retrieve all data based on message size
             while len(data) < msg_size:
@@ -139,13 +142,13 @@ def on_new_client(clientsocket, camera_id):
                 video_name = update_vide_name_on_day_change(camera_id)
                 if output is not None and is_video_saving_enabled:
                     output.release()  # save previous video if day changed
-        # Extract frame
+            # Extract frame
             frame = pickle.loads(frame_data)
             with lock:
                 current_frames_from_cameras[camera_id] = frame.copy()
             if output is None and is_video_saving_enabled:
-                output = cv2.VideoWriter(video_name, vid_cod, 20.0, (frame.shape[1],frame.shape[0]))
-        # Display
+                output = cv2.VideoWriter(video_name, vid_cod, 20.0, (frame.shape[1], frame.shape[0]))
+            # Display
             cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
             cv2.waitKey(1)
             if is_video_saving_enabled:
@@ -162,6 +165,6 @@ def on_new_client(clientsocket, camera_id):
 
 if __name__ == "__main__":
     sockets = create_sockets(cameras, HOST)
-    for camera_id in sockets:
-        Thread(target = listen_on_socket,args = (sockets[camera_id], camera_id,), daemon=True).start()
-    app.run(host='localhost', port='1234', debug=True,threaded=True, use_reloader=False)
+    for camera in sockets:
+        Thread(target=listen_on_socket, args=(sockets[camera], camera,), daemon=True).start()
+    app.run(host='localhost', port='1234', debug=True, threaded=True, use_reloader=False)

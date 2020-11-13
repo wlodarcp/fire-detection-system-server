@@ -4,8 +4,7 @@ import socket
 def create_sockets(cameras, HOST):
     sockets = {}
     for camera in cameras:
-        camera_id = camera.id
-        sockets[camera_id] = create_socket_for_camera(camera, HOST)
+        sockets[camera] = create_socket_for_camera(camera, HOST)
     print(sockets)
     return sockets
 

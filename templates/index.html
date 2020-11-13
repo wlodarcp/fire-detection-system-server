@@ -1,7 +1,7 @@
 <html>
-  <head>
+<head>
     <title>Fire detection system</title>
-      <style>
+    <style>
 
         div.video {
           background-color: white;
@@ -27,22 +27,36 @@
              margin-left: auto;
              margin-right: auto;
         }
-</style>
-  </head>
-  <body>
-    <h1>Fire detection monitoring system</h1>
-    <div class="videos">
-        {% for camera in camera_list %}
+
+    </style>
+</head>
+<body>
+<h1>Fire detection monitoring system</h1>
+<div class="videos">
+    {% for camera in camera_list %}
+        {% if is_fire_check_enabled and camera.is_fire_detected_in_long_measurement()%}
+            <div class="video fire-video" style={{fire_color_selector.get_color()}}>
+                <div class="container">
+                    Camera Id: {{camera.id}}
+                </div>
+                <img src="{{ url_for('video_feed', camera_id=camera.id) }}" height="85%" width="95%">
+                <div class="container" style="color:purple;">ALARM - FIRE DETECTED</div>
+            </div>
+        {% else %}
             <div class="video">
                 <div class="container">
                     Camera Id: {{camera.id}}
                 </div>
-                <img src="{{ url_for('video_feed', camera_id=camera.id) }}" height="85%" width="95%" >
-                {% if is_fire_check_enabled and camera.has_fire_detection_enabled%}
-                    <div class="container" style="color:red;">ALARM - FIRE DETECTED</div>
-                {% endif %}
+                <img src="{{ url_for('video_feed', camera_id=camera.id) }}" height="85%" width="95%">
             </div>
-        {% endfor %}
-    </div>
-  </body>
+        {% endif %}
+    {% endfor %}
+</div>
+</body>
 </html>
+<script type="text/javascript">
+var timer = function() {
+    setTimeout(function(){ window.location.reload(); }, 60000);
+};
+timer();
+</script>
