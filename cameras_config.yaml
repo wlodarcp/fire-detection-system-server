@@ -1,0 +1,11 @@
+cameras:
+  - id: 1
+    port: 8098
+    has_fire_detection_enabled: True
+  - id: 2
+    port: 8010
+    has_fire_detection_enabled: False
+
+is_video_saving_enabled: False
+is_fire_detection_signal_check_enabled: True
+HOST: localhost
