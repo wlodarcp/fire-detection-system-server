@@ -1,8 +1,6 @@
-import os
 import pickle
 import struct
 from datetime import date
-from datetime import datetime
 from threading import Thread, Lock
 
 import cv2
@@ -11,8 +9,9 @@ from flask import Response
 from flask import render_template
 
 from Configuration import load_configuration
-from SocketForCameraCreator import create_sockets
 from FireAlarmColorSelector import FireAlarmColorSelector
+from SocketForCameraCreator import create_sockets
+from VideoPathCreator import build_video_name_with_path
 
 config = load_configuration('cameras_config.yaml')
 
@@ -21,7 +20,7 @@ is_video_saving_enabled = config.is_video_saving_enabled
 is_fire_detection_signal_check_enabled = config.is_fire_detection_signal_check_enabled
 HOST = config.HOST
 
-current_date = date.today()
+startup_date = date.today()
 image_on_camera_unavialable = cv2.imread(str('templates/broken_glass.jpg'), 1)
 
 current_frames_from_cameras = {}
@@ -32,7 +31,7 @@ app = Flask(__name__)
 color_selector = FireAlarmColorSelector()
 
 
-def generate_data_for_web_browser(camera_id):
+def generate_video_stream_for_web_browser(camera_id):
     global lock, current_frames_from_cameras
     while True:
         # wait until the lock is acquired
@@ -56,7 +55,7 @@ def index():
 
 @app.route("/video_feed/<camera_id>")
 def video_feed(camera_id):
-    return Response(generate_data_for_web_browser(camera_id), mimetype="multipart/x-mixed-replace; boundary=frame")
+    return Response(generate_video_stream_for_web_browser(camera_id), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
 def listen_on_socket(socket, camera):
@@ -65,36 +64,18 @@ def listen_on_socket(socket, camera):
         on_new_client(conn, camera)
 
 
-def build_path_for_video(camera_id):
-    return str('videos/' + current_date.strftime("%b-%d-%Y") + '/cam_' + str(camera_id) + '/')
-
-
-def create_path_if_not_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-
-def build_video_name_with_path(camera_id):
-    path = build_path_for_video(camera_id)
-    create_path_if_not_exists(path)
-    current_date_time = datetime.now()
-    video_path = str(path + str(current_date_time.strftime("started_at_%H.%M")) + '.avi')
-    print("Video path: " + video_path)
-    return video_path
-
-
 def is_day_changed():
     actual_date = date.today()
-    return actual_date != current_date
+    return actual_date != startup_date
 
 
 def update_vide_name_on_day_change(camera_id):
-    global current_date
-    current_date = date.today()
-    return build_video_name_with_path(camera_id)
+    global startup_date
+    startup_date = date.today()
+    return build_video_name_with_path(startup_date, camera_id)
 
 
-def extract_singal_from_fire_detctor(clientsocket, data):
+def extract_signal_from_fire_detctor(clientsocket, data):
     received = clientsocket.recv(4096)
     if not received: raise Exception()
     data += received
@@ -103,7 +84,6 @@ def extract_singal_from_fire_detctor(clientsocket, data):
     return data, is_fire
 
 
-# TODO REFACTOR create class for camera instead of use object ? consider how it will work with config from file for cameras
 def find_camera_by_id(camera_id):
     return next((camera for camera in cameras if camera.id == camera_id), None)
 
@@ -115,12 +95,12 @@ def on_new_client(clientsocket, camera):
     payload_size = struct.calcsize("L")
     print("Camera " + str(camera_id) + " CONNECTED to the server")
     vid_cod = cv2.VideoWriter_fourcc(*'XVID')
-    video_name = build_video_name_with_path(camera_id)
+    video_name = build_video_name_with_path(startup_date, camera_id)
     output = None
     while True:
         try:
             if is_fire_detection_signal_check_enabled and camera.has_fire_detection_enabled:
-                (data, is_fire) = extract_singal_from_fire_detctor(clientsocket, data)
+                (data, is_fire) = extract_signal_from_fire_detctor(clientsocket, data)
                 camera.update_fire_signal_queue(is_fire)
             while len(data) < payload_size:  # 1 because first byte is info about is fire signal
                 received = clientsocket.recv(4096)
@@ -149,8 +129,8 @@ def on_new_client(clientsocket, camera):
             if output is None and is_video_saving_enabled:
                 output = cv2.VideoWriter(video_name, vid_cod, 20.0, (frame.shape[1], frame.shape[0]))
             # Display
-            cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
-            cv2.waitKey(1)
+            #cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
+            #cv2.waitKey(1)
             if is_video_saving_enabled:
                 output.write(frame)
 
@@ -159,7 +139,7 @@ def on_new_client(clientsocket, camera):
             print("Camera " + str(camera_id) + " DISCONNECTED")
             if is_video_saving_enabled:
                 output.release()
-            cv2.destroyWindow(str('frame_for_camera-' + str(camera_id)))
+            #cv2.destroyWindow(str('frame_for_camera-' + str(camera_id)))
             break
 
 

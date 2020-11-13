@@ -5,6 +5,12 @@ cameras:
   - id: 2
     port: 8010
     has_fire_detection_enabled: False
+  - id: 3
+    port: 8001
+    has_fire_detection_enabled: False
+  - id: 4
+    port: 8002
+    has_fire_detection_enabled: False
 
 is_video_saving_enabled: False
 is_fire_detection_signal_check_enabled: True
