@@ -35,10 +35,10 @@
         {% for camera in camera_list %}
             <div class="video">
                 <div class="container">
-                    Camera Id: {{camera[0]}}
+                    Camera Id: {{camera.id}}
                 </div>
-                <img src="{{ url_for('video_feed', camera_id=camera[0]) }}" height="85%" width="95%" >
-                {% if is_fire_check_enabled and camera[2]%}
+                <img src="{{ url_for('video_feed', camera_id=camera.id) }}" height="85%" width="95%" >
+                {% if is_fire_check_enabled and camera.has_fire_detection_enabled%}
                     <div class="container" style="color:red;">ALARM - FIRE DETECTED</div>
                 {% endif %}
             </div>

@@ -1,26 +1,31 @@
+import os
 import pickle
 import socket
 import struct
-import os
-
-from threading import Thread, Lock
-import cv2
-
 from datetime import date
 from datetime import datetime
+from threading import Thread, Lock
 
-from flask import Response
+import cv2
 from flask import Flask
+from flask import Response
 from flask import render_template
 
-current_date = date.today()
+from Configuration import load_configuration
+from SocketForCameraCreator import create_sockets
 
-cameras = [[1, 8098, True], [2, 8010, False]]
-current_frames_from_cameras = {}
-is_video_saving_enabled = False
-is_fire_detection_signal_check_enabled = True
-HOST = 'localhost'
+config = load_configuration('cameras_config.yaml')
+
+cameras = config.cameras
+is_video_saving_enabled = config.is_video_saving_enabled
+is_fire_detection_signal_check_enabled = config.is_fire_detection_signal_check_enabled
+HOST = config.HOST
+
+current_date = date.today()
 image_on_camera_unavialable = cv2.imread(str('templates/broken_glass.jpg'), 1)
+
+
+current_frames_from_cameras = {}
 lock = Lock()
 
 app = Flask(__name__)
@@ -34,7 +39,7 @@ def generate_data_for_web_browser(camera_id):
             try:
                 output = current_frames_from_cameras[int(camera_id)]
                 (flag, encoded_image) = cv2.imencode(".jpg", output)
-            except:
+            except Exception as e:
                 (flag, encoded_image) = cv2.imencode(".jpg", image_on_camera_unavialable)
             if not flag:
                 continue
@@ -51,25 +56,6 @@ def index():
 @app.route("/video_feed/<camera_id>")
 def video_feed(camera_id):
     return Response(generate_data_for_web_browser(camera_id), mimetype="multipart/x-mixed-replace; boundary=frame")
-
-
-def create_sockets(cameras):
-    sockets = {}
-    for camera in cameras:
-        camera_id = camera[0]
-        sockets[camera_id] = create_socket_for_camera(camera_id, camera[1])
-    print(sockets)
-    return sockets        
-
-
-def create_socket_for_camera(camera_id, port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print('Socket created for camera {' + str(camera_id) + '} on port {' + str(port) + '}')
-    s.bind((HOST, port))
-    print('Socket bind complete')
-    s.listen(10)
-    print('Socket now listening')
-    return s
 
 
 def listen_on_socket(socket, camera_id):
@@ -117,7 +103,7 @@ def extract_singal_from_fire_detctor(clientsocket, data):
 
 #TODO REFACTOR create class for camera instead of use object ? consider how it will work with config from file for cameras
 def find_camera_by_id(camera_id):
-    return next((camera for camera in cameras if camera[0] == camera_id), None)
+    return next((camera for camera in cameras if camera.id == camera_id), None)
 
 
 def on_new_client(clientsocket, camera_id):
@@ -131,7 +117,7 @@ def on_new_client(clientsocket, camera_id):
     while True:
         try:
             is_fire = None
-            if is_fire_detection_signal_check_enabled and find_camera_by_id(camera_id)[2]:
+            if is_fire_detection_signal_check_enabled and find_camera_by_id(camera_id).has_fire_detection_enabled:
                 (data, is_fire) = extract_singal_from_fire_detctor(clientsocket, data)
             while len(data) < payload_size: #1 because first byte is info about is fire signal
                 received = clientsocket.recv(4096)
@@ -165,7 +151,8 @@ def on_new_client(clientsocket, camera_id):
             if is_video_saving_enabled:
                 output.write(frame)
 
-        except:
+        except Exception as e:
+            print(e)
             print("Camera " + str(camera_id) + " DISCONNECTED")
             if is_video_saving_enabled:
                 output.release()
@@ -174,7 +161,7 @@ def on_new_client(clientsocket, camera_id):
 
 
 if __name__ == "__main__":
-    sockets = create_sockets(cameras)
+    sockets = create_sockets(cameras, HOST)
     for camera_id in sockets:
         Thread(target = listen_on_socket,args = (sockets[camera_id], camera_id,), daemon=True).start()
     app.run(host='localhost', port='1234', debug=True,threaded=True, use_reloader=False)
