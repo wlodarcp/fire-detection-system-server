@@ -15,9 +15,9 @@ class Camera:
 
     def update_fire_signal_queue(self, fire_signal):
         if self.has_fire_detection_enabled:
-            self.fire_signal_queue.appendleft(fire_signal)
+            self.fire_signal_queue.appendleft(bool(fire_signal))
 
     def is_fire_detected_in_long_measurement(self):
         if self.has_fire_detection_enabled:
-            return self.fire_signal_queue.count(True)/20 > 0.5
+            return self.fire_signal_queue.count(True)/20 > 0.9
         return False
