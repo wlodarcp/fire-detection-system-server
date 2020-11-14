@@ -13,7 +13,7 @@ from FireAlarmColorSelector import FireAlarmColorSelector
 from SocketForCameraCreator import create_sockets
 from VideoPathCreator import build_video_name_with_path
 
-config = load_configuration('cameras_config.yaml')
+config = load_configuration('config.yaml')
 
 cameras = config.cameras
 is_video_saving_enabled = config.is_video_saving_enabled
