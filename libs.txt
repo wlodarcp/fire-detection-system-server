@@ -1,0 +1,10 @@
+attrs==17.4.0
+Flask==1.1.1
+Flask-Compress==1.4.0
+Jinja2==2.11.1
+opencv-python==3.4.3.18
+path.py==10.5
+pickleshare==0.7.4
+PySocks==1.6.7
+PyYAML==3.12
+webencodings==0.5.1

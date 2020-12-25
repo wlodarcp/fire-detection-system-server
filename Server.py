@@ -147,4 +147,4 @@ if __name__ == "__main__":
     sockets = create_sockets(cameras, HOST)
     for camera in sockets:
         Thread(target=listen_on_socket, args=(sockets[camera], camera,), daemon=True).start()
-    app.run(host='localhost', port='1234', debug=True, threaded=True, use_reloader=False)
+    app.run(host='0.0.0.0', port='1234', debug=True, threaded=True, use_reloader=False)
