@@ -13,5 +13,4 @@ cameras:
     has_fire_detection_enabled: False
 
 is_video_saving_enabled: True
-is_fire_detection_signal_check_enabled: True
 HOST: 0.0.0.0

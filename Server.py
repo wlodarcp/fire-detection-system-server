@@ -17,7 +17,6 @@ config = load_configuration('config.yaml')
 
 cameras = config.cameras
 is_video_saving_enabled = config.is_video_saving_enabled
-is_fire_detection_signal_check_enabled = config.is_fire_detection_signal_check_enabled
 HOST = config.HOST
 
 startup_date = date.today()
@@ -99,7 +98,7 @@ def on_new_client(clientsocket, camera):
     output = None
     while True:
         try:
-            if is_fire_detection_signal_check_enabled and camera.has_fire_detection_enabled:
+            if camera.has_fire_detection_enabled:
                 (data, is_fire) = extract_signal_from_fire_detctor(clientsocket, data)
                 camera.update_fire_signal_queue(is_fire)
             while len(data) < payload_size:  # 1 because first byte is info about is fire signal
