@@ -1,7 +1,5 @@
-TODO List:
-- update readme
-- create repo for client app 
-- allow to use client with fire detection model or without
-- allow to pass config file name as arg
-- code refactor
-- if client can't connect with server do not shutdown client but try to connect in loop
+Server to aggregate video from multiple clients connected to video camera.
+
+Clients may use fire detection model to check if fire is detected on the video in current time
+
+Server also serve web page with live stream from each camera

@@ -1,7 +1,7 @@
 cameras:
   - id: 1
     port: 8080
-    has_fire_detection_enabled: True
+    has_fire_detection_enabled: False
   - id: 2
     port: 8010
     has_fire_detection_enabled: False
