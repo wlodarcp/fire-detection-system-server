@@ -20,7 +20,7 @@ is_video_saving_enabled = config.is_video_saving_enabled
 HOST = config.HOST
 
 startup_date = date.today()
-image_on_camera_unavialable = cv2.imread(str('templates/broken_glass.jpg'), 1)
+image_on_camera_unavialable = cv2.imread(str('templates/no_signal.jpg'), 1)
 
 current_frames_from_cameras = {}
 lock = Lock()
@@ -33,23 +33,20 @@ color_selector = FireAlarmColorSelector()
 def generate_video_stream_for_web_browser(camera_id):
     global lock, current_frames_from_cameras
     while True:
-        # wait until the lock is acquired
-        with lock:
-            try:
-                output = current_frames_from_cameras[int(camera_id)]
-                (flag, encoded_image) = cv2.imencode(".jpg", output)
-            except Exception as e:
-                (flag, encoded_image) = cv2.imencode(".jpg", image_on_camera_unavialable)
-            if not flag:
-                continue
-        # yield the output frame in the byte format
+        try:
+            output = current_frames_from_cameras[int(camera_id)]
+            (flag, encoded_image) = cv2.imencode(".jpg", output)
+        except Exception as e:
+            (flag, encoded_image) = cv2.imencode(".jpg", image_on_camera_unavialable)
+        if not flag:
+            continue
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
 
 
 @app.route("/")
 def index():
-    return render_template("index.html", camera_list=cameras, is_fire_check_enabled=is_fire_detection_signal_check_enabled, fire_color_selector=color_selector)
+    return render_template("index.html", camera_list=cameras, fire_color_selector=color_selector)
 
 
 @app.route("/video_feed/<camera_id>")
@@ -81,10 +78,6 @@ def extract_signal_from_fire_detctor(clientsocket, data):
     is_fire = data[0]
     data = data[1:]
     return data, is_fire
-
-
-def find_camera_by_id(camera_id):
-    return next((camera for camera in cameras if camera.id == camera_id), None)
 
 
 def on_new_client(clientsocket, camera):
@@ -123,27 +116,24 @@ def on_new_client(clientsocket, camera):
                     output.release()  # save previous video if day changed
             # Extract frame
             frame = pickle.loads(frame_data)
-            with lock:
-                current_frames_from_cameras[camera_id] = frame.copy()
+            current_frames_from_cameras[camera_id] = frame.copy()
             if output is None and is_video_saving_enabled:
                 output = cv2.VideoWriter(video_name, vid_cod, 20.0, (frame.shape[1], frame.shape[0]))
-            # Display
-            #cv2.imshow(str('frame_for_camera-' + str(camera_id)), frame)
-            #cv2.waitKey(1)
+
             if is_video_saving_enabled:
                 output.write(frame)
 
         except Exception as e:
             print(e)
             print("Camera " + str(camera_id) + " DISCONNECTED")
+            del current_frames_from_cameras[int(camera_id)]
             if is_video_saving_enabled:
                 output.release()
-            #cv2.destroyWindow(str('frame_for_camera-' + str(camera_id)))
             break
 
 
 if __name__ == "__main__":
     sockets = create_sockets(cameras, HOST)
     for camera in sockets:
-        Thread(target=listen_on_socket, args=(sockets[camera], camera,), daemon=True).start()
+        Thread(target=listen_on_socket, args=(sockets[camera], camera,)).start()
     app.run(host='0.0.0.0', port='1234', debug=True, threaded=True, use_reloader=False)
