@@ -39,7 +39,7 @@
                 <div class="container">
                     Camera Id: {{camera.id}}
                 </div>
-                <img src="{{ url_for('video_feed', camera_id=camera.id) }}" height="85%" width="95%">
+                <img src="{{ url_for('video_feed', camera_id=camera.id) }}" height="85%" width="95%" onerror="this.onerror=null; this.src='broken_glass.jpg'">
                 <div class="container" style="color:purple;">ALARM - FIRE DETECTED</div>
             </div>
         {% else %}
